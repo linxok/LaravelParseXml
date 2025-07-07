@@ -1,0 +1,78 @@
+## Mark Shust's Docker Configuration for Magento
+## (https://github.com/markshust/docker-magento)
+##
+## Version 44.0.0
+
+## To use SSH, see https://github.com/markshust/docker-magento#ssh
+## Linux users, see https://github.com/markshust/docker-magento#linux
+
+## If you changed the default Docker network, you may need to replace
+## 172.17.0.1 in this file with the result of:
+## docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}'
+
+version: "3"
+
+services:
+  app:
+    image: webdevops/php-apache-dev:8.2
+    container_name: web
+    restart: always
+    user: application
+    environment:
+      - WEB_ALIAS_DOMAIN=test.loc
+      - WEB_DOCUMENT_ROOT=/app/public
+      - PHP_DATE_TIMEZONE=EST
+      - PHP_DISPLAY_ERRORS=1
+      - PHP_MEMORY_LIMIT=2048M
+      - PHP_MAX_EXECUTION_TIME=300
+      - PHP_POST_MAX_SIZE=500M
+      - PHP_UPLOAD_MAX_FILESIZE=1024M
+    volumes:
+      - ./appdata:/app:cached
+    ports:
+      - "80:80"
+      - "443:443"
+      - "32823:22"
+    links:
+      - db
+  
+  phpfpm:
+    image: markoshust/magento-php:8.2-fpm-0
+    #volumes: *appvolumes
+    volumes: 
+      - ./appdata:/app:cached
+    env_file: env/phpfpm.env
+    #extra_hosts: *appextrahosts
+
+  db:
+    image: mariadb:10.4
+    command:
+      --max_allowed_packet=64M
+      --optimizer_use_condition_selectivity=1
+      --optimizer_switch="rowid_filter=off"
+    ports:
+      - "3306:3306"
+    env_file: env/db.env
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  redis:
+    image: redis:6.2-alpine
+    ports:
+      - "6379:6379"
+
+
+  phpmyadmin:
+    image: linuxserver/phpmyadmin
+    env_file: env/db.env
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+volumes:
+  appdata:
+  dbdata:
+  rabbitmqdata:
+  sockdata:
+  ssldata:
