@@ -1,4 +1,7 @@
 # testUAITLAB
+
+
+
 open terminal, 
     sh restart.sh    or     sh stop.sh
         run/stop docker-compose.yaml
@@ -11,4 +14,3 @@ open terminal,
 
 
     http://test.loc/catalog
-    
