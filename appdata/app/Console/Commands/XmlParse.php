@@ -1,30 +1,20 @@
 <?php
-
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Services\CatalogImportService;
 
 class XmlParse extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'app:xml-parse';
+    protected $signature   = 'app:xml-parse {file=storage/app/data.xml}';
+    protected $description = 'Імпорт каталогу товарів із XML';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Command description';
-
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
-        //
+        $path = $this->argument('file');
+        $this->info("Старт імпорту з файлу: {$path}");
+        (new CatalogImportService($path))->import();
+        $this->info("Імпорт завершено.");
+        return 0;
     }
 }
