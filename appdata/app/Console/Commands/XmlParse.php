@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 
 class XmlParse extends Command
 {
-    protected $signature   = 'app:xml-parse {file=storage/app/data.xml}';
+    protected $signature   = 'app:xml-parse {file=test.xml}';
     protected $description = 'Імпорт каталогу товарів із XML';
 
     public function handle()

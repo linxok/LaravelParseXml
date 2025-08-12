@@ -8,7 +8,31 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['xml_id','name','price','description'];
+    protected $fillable = [
+        'xml_id',
+        'name',
+        'price',
+        'description',
+        'available',
+        'category_xml_id',
+        'currency',
+        'stock_quantity',
+        'description_format',
+        'vendor',
+        'vendor_code',
+        'barcode',
+        'pictures',
+    ];
+
+    protected $casts = [
+        'available' => 'boolean',
+        'pictures' => 'array',
+    ];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_xml_id', 'xml_id');
+    }
 
     public function parameterValues()
     {

@@ -27,35 +27,39 @@ class CatalogImportService
      */
     public function import(): void
     {
-        // 1) Імпортуємо категорії
-        $this->parseCategories();
+        echo "[INFO] Старт парсингу категорій...\n";
+        $catCount = $this->parseCategories();
+        echo "[INFO] Категорій оброблено: {$catCount}\n";
 
-        // 2) Імпортуємо товари
+        echo "[INFO] Старт парсингу товарів...\n";
         $reader = new XMLReader();
         $reader->open($this->filePath);
-
-
+        $offerCount = 0;
         while ($reader->read()) {
             if ($reader->nodeType === XMLReader::ELEMENT && $reader->name === 'offer') {
                 $simpleXml = simplexml_load_string($reader->readOuterXML());
                 $this->processOffer($simpleXml);
+                $offerCount++;
+                if ($offerCount % 100 === 0) {
+                    echo "[INFO] Оброблено товарів: {$offerCount}\n";
+                }
             }
         }
         $reader->close();
+        echo "[INFO] Парсинг завершено. Всього товарів: {$offerCount}\n";
     }
 
     /**
      * Парсинг категорій з секції <shop><categories>
      */
-    protected function parseCategories(): void
+    protected function parseCategories(): int
     {
         $xml = simplexml_load_file($this->filePath);
-
+        $count = 0;
         foreach ($xml->shop->categories->category as $cat) {
             $xmlId = (int)$cat['id'];
             $parentId = isset($cat['parentId']) ? (int)$cat['parentId'] : null;
             $title = trim((string)$cat);
-
             Category::updateOrCreate(
                 ['xml_id' => $xmlId],
                 [
@@ -63,7 +67,9 @@ class CatalogImportService
                     'parent_xml_id' => $parentId,
                 ]
             );
+            $count++;
         }
+        return $count;
     }
 
     /**
@@ -80,11 +86,21 @@ class CatalogImportService
             return;
         }
 
-        // Зв’язок з категорією (якщо є)
-        $category = null;
-        if (isset($offer->categoryId)) {
-            $categoryXmlId = (int)$offer->categoryId;
-            $category = Category::firstWhere('xml_id', $categoryXmlId);
+        // Додаткові поля з offer
+        $available = isset($offer['available']) ? ((string)$offer['available'] === 'true' ? 1 : 0) : 1;
+        $categoryXmlId = isset($offer->categoryId) ? (int)$offer->categoryId : null;
+        $currency = isset($offer->currencyId) ? (string)$offer->currencyId : null;
+        $stockQuantity = isset($offer->stock_quantity) ? (int)$offer->stock_quantity : null;
+        $descriptionFormat = isset($offer->description_format) ? (string)$offer->description_format : null;
+        $vendor = isset($offer->vendor) ? (string)$offer->vendor : null;
+        $vendorCode = isset($offer->vendorCode) ? (string)$offer->vendorCode : null;
+        $barcode = isset($offer->barcode) ? (string)$offer->barcode : null;
+        // Збір картинок у масив
+        $pictures = [];
+        if (isset($offer->picture)) {
+            foreach ($offer->picture as $pic) {
+                $pictures[] = (string)$pic;
+            }
         }
 
         // Створюємо або оновлюємо продукт
@@ -94,12 +110,21 @@ class CatalogImportService
                 'name' => $name,
                 'price' => $price,
                 'description' => (string)$offer->description,
-                'category_id' => $category?->id,  // PHP 8 null-safe
+                'available' => $available,
+                'category_xml_id' => $categoryXmlId,
+                'currency' => $currency,
+                'stock_quantity' => $stockQuantity,
+                'description_format' => $descriptionFormat,
+                'vendor' => $vendor,
+                'vendor_code' => $vendorCode,
+                'barcode' => $barcode,
+                'pictures' => !empty($pictures) ? json_encode($pictures, JSON_UNESCAPED_UNICODE) : null,
             ]
         );
 
-        // Очищаємо старі значення параметрів
-        $product->parameterValues()->detach();
+
+    // Очищаємо старі значення параметрів
+    $product->parameterValues()->detach();
 
         // Обробляємо динамічні параметри <param name="…">value</param>
         foreach ($offer->param as $param) {
@@ -131,7 +156,7 @@ class CatalogImportService
             $product->parameterValues()->attach($value->id);
 
             // 4) Оновлюємо Redis-множини для фільтрів
-            $this->updateRedisSets($slug, $paramValue, $product->id);
+            // $this->updateRedisSets($slug, $paramValue, $product->id); // <--- Redis тимчасово вимкнено
         }
     }
 
