@@ -1,8 +1,8 @@
 <?php
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Services\CatalogImportService;
+use Illuminate\Console\Command;
 
 class XmlParse extends Command
 {

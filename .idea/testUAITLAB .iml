@@ -29,6 +29,7 @@
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/pint" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/prompts" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/sail" />
+      <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/sanctum" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/serializable-closure" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/laravel/tinker" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/league/commonmark" />
@@ -118,6 +119,7 @@
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/vlucas/phpdotenv" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/voku/portable-ascii" />
       <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/webmozart/assert" />
+      <excludeFolder url="file://$MODULE_DIR$/appdata/vendor/predis/predis" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

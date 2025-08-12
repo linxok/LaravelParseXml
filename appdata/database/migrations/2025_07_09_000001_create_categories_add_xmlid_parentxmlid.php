@@ -6,24 +6,49 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::table('categories', function (Blueprint $table) {
-            // унікальний id з XML
-            if (! Schema::hasColumn('categories', 'xml_id')) {
-                $table->unsignedBigInteger('xml_id')->unique()->after('id');
-            }
-            // посилання на xml_id батьківської категорії
-            if (! Schema::hasColumn('categories', 'parent_xml_id')) {
-                $table->unsignedBigInteger('parent_xml_id')->nullable()->after('xml_id');
-            }
-        });
+        // Якщо таблиці ще немає — створюємо
+        if (! Schema::hasTable('categories')) {
+            Schema::create('categories', function (Blueprint $table) {
+                $table->id();
+
+                // Унікальний ID категорії з XML
+                $table->unsignedBigInteger('xml_id')->unique();
+
+                // XML ID батьківської категорії (nullable)
+                $table->unsignedBigInteger('parent_xml_id')->nullable();
+
+                // Назва категорії
+                $table->string('title');
+
+                $table->timestamps();
+
+                // Self-reference FK: parent_xml_id → xml_id тієї ж таблиці
+                $table->foreign('parent_xml_id')
+                    ->references('xml_id')
+                    ->on('categories')
+                    ->onDelete('cascade')
+                    ->onUpdate('cascade');
+            });
+        }
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
+        // Спочатку прибираємо FK, потім дропаємо таблицю
         Schema::table('categories', function (Blueprint $table) {
-            $table->dropColumn(['xml_id', 'parent_xml_id']);
+            if (Schema::hasColumn('categories', 'parent_xml_id')) {
+                $table->dropForeign(['parent_xml_id']);
+            }
         });
+
+        Schema::dropIfExists('categories');
     }
 };
