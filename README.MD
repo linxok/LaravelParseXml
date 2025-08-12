@@ -1,6 +1,3 @@
-# testUAITLAB
-
-
 
 open terminal, 
     sh restart.sh    or     sh stop.sh
