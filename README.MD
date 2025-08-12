@@ -8,3 +8,7 @@ open terminal,
     php artisan migrate
     
     php artisan app:xml-parse test.xml
+
+
+    http://test.loc/catalog
+    

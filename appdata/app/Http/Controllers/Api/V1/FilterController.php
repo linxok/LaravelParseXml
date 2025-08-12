@@ -11,60 +11,86 @@ class FilterController extends Controller
     public function index(Request $request)
     {
         $activeFilters = $request->query('filter', []);
-        $redis = Redis::connection();
 
-        // 1) Формуємо базовий список ID для активних фільтрів
-        $baseKeys = [];
-        foreach ($activeFilters as $slug => $values) {
-            foreach ((array)$values as $val) {
-                $baseKeys[] = "filter:{$slug}:{$val}";
+        // Категорії як окремий фільтр (без Redis)
+        $categoryFilter = [];
+        $categories = \App\Models\Category::orderBy('title')->get();
+        $catValues = [];
+        foreach ($categories as $cat) {
+            // Рахуємо кількість товарів у категорії з урахуванням інших активних фільтрів
+            $query = \App\Models\Product::query()->where('category_xml_id', $cat->xml_id);
+            // Додаємо інші фільтри (крім категорії)
+            foreach ($activeFilters as $slug => $values) {
+                if ($slug === 'category_xml_id') continue;
+                $query->whereHas('parameterValues.parameter', function($q) use ($slug) {
+                    $q->where('slug', $slug);
+                }, '>=', 1);
+                $query->whereHas('parameterValues', function($q) use ($slug, $values) {
+                    $q->whereIn('value', (array)$values);
+                });
             }
+            $count = $query->count();
+            $isActive = isset($activeFilters['category_xml_id']) && in_array($cat->xml_id, (array)$activeFilters['category_xml_id']);
+            $catValues[] = [
+                'value' => $cat->xml_id,
+                'label' => $cat->title,
+                'count' => $count,
+                'active' => $isActive,
+            ];
         }
-        // якщо є хоч один активний — перетинаємо, інакше нехай базовий буде null
-        $baseSet = null;
-        if (count($baseKeys)) {
-            $tempKey = 'filter:temp:base';
-            // зберігаємо результат перетину в тимчасовий сет
-            $redis->sinterstore($tempKey, $baseKeys);
-            $baseSet = $tempKey;
-        }
+        $categoryFilter = [
+            'name' => 'Категорія',
+            'slug' => 'category_xml_id',
+            'values' => array_map(function($v) {
+                return [
+                    'value' => $v['value'],
+                    'count' => $v['count'],
+                    'active' => $v['active'],
+                    'label' => $v['label'],
+                ];
+            }, $catValues),
+        ];
 
-        // 2) Для кожного параметра збираємо можливі значення
+        // 2) Для кожного параметра збираємо можливі значення (без Redis)
         $parameters = Parameter::all();
-        $result = [];
+        $result = [$categoryFilter];
 
         foreach ($parameters as $param) {
             $values = [];
-            // список усіх значень береcя з Redis множини
-            $allVals = $redis->smembers("filter:{$param->slug}:__values__");
+            // список усіх значень беремо з parameter_values
+            $allVals = \App\Models\ParameterValue::where('parameter_id', $param->id)->pluck('value');
             foreach ($allVals as $val) {
-                $key = "filter:{$param->slug}:{$val}";
-
                 // визначаємо активність
-                $isActive = isset($activeFilters[$param->slug]) &&
-                    in_array($val, (array)$activeFilters[$param->slug]);
+                $isActive = isset($activeFilters[$param->slug]) && in_array($val, (array)$activeFilters[$param->slug]);
 
-                // рахуємо перетин
-                if ($baseSet) {
-                    // додаємо до перетину ще цей сет
-                    $count = $redis->sinterstore('filter:temp:calc', [$baseSet, $key]);
-                    // видаляємо тимчасовий
-                    $redis->del('filter:temp:calc');
-                } else {
-                    // без активних фільтрів — просто розмір множини
-                    $count = $redis->scard($key);
+                // рахуємо кількість товарів з цим значенням (з урахуванням інших фільтрів)
+                $query = \App\Models\Product::query();
+                // Категорія
+                if (isset($activeFilters['category_xml_id'])) {
+                    $query->whereIn('category_xml_id', (array)$activeFilters['category_xml_id']);
                 }
+                // Інші параметри
+                foreach ($activeFilters as $slug => $values2) {
+                    if ($slug === $param->slug) continue;
+                    if ($slug === 'category_xml_id') continue;
+                    $query->whereHas('parameterValues.parameter', function($q) use ($slug) {
+                        $q->where('slug', $slug);
+                    }, '>=', 1);
+                    $query->whereHas('parameterValues', function($q) use ($slug, $values2) {
+                        $q->whereIn('value', (array)$values2);
+                    });
+                }
+                // Поточний параметр
+                $query->whereHas('parameterValues', function($q) use ($param, $val) {
+                    $q->where('parameter_id', $param->id)->where('value', $val);
+                });
+                $count = $query->count();
 
                 $values[] = [
                     'value'  => $val,
                     'count'  => (int)$count,
                     'active' => (bool)$isActive,
                 ];
-            }
-
-            // прибираємо тимчасовий базовий сет
-            if ($baseSet) {
-                $redis->del($baseSet);
             }
 
             $result[] = [
